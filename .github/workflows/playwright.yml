@@ -1,0 +1,49 @@
+name: Playwright smoke tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Site origin to test"
+        required: false
+        default: "https://example.com"
+
+concurrency:
+  group: playwright-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    env:
+      BASE_URL: ${{ github.event.inputs.base_url || vars.PLAYWRIGHT_BASE_URL || 'https://example.com' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run smoke tests
+        run: npm run test:smoke
+
+      - name: Upload Playwright artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
